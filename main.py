@@ -7,19 +7,67 @@ HINT = 'Guess the word! HINT: word is a name of a fruit.'
 SEPARATOR = '*' * 30
 
 # Words for the game
-some_word = ['apple', 'banana', 'mango', 'strawberry', 'orange', 'grape', 'pineapple', 'apricot', 'lemon', 'coconut',
-             'watermelon', 'cherry', 'papaya', 'berry', 'peach', 'lychee', 'muskmelon']
+some_words = ['apple', 'banana', 'mango', 'strawberry', 'orange', 'grape', 'pineapple', 'apricot', 'lemon',
+              'coconut', 'watermelon', 'cherry', 'papaya', 'berry', 'peach', 'lychee', 'muskmelon']
 
-selected_word = random.choice(some_word)
+selected_word = random.choice(some_words)
 word_letters = list(selected_word)
 user_letters = ['_' for _ in selected_word]
 word_count = len(selected_word)
-chance = 10
+chance = None
+game_difficulty = {
+    'e': 10,
+    'm': 7,
+    'h': 5
+}
 
 
-def start_game():
+def clear_screen():
+    """Clears the screen."""
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+
+def select_difficulty():
+    """Selects the game difficulty."""
+    while True:
+        difficulty = input("Choose difficulty: 'e' for easy, 'm' for medium, 'h' for hard: ")
+        if difficulty in ['e', 'm', 'h']:
+            return difficulty
+        else:
+            print("Select a valid difficulty option! ('e' for easy, 'm' for medium, 'h' for hard)")
+
+
+def set_difficulty(difficulty):
+    """Sets the game difficulty."""
+    global chance
+    chance = game_difficulty.get(difficulty, 10)
+
+
+def check_letter(guessed_letter):
+    """Checks if the guessed letter is correct and updates the game state."""
+    global word_count, chance
+    if guessed_letter in word_letters:
+        indexes = [index for index, item in enumerate(word_letters) if item == guessed_letter]
+
+        for index in indexes:
+            if user_letters[index] == '_':
+                user_letters[index] = guessed_letter
+                word_count -= 1
+            else:
+                print('🤨 You have already guessed that letter. 🤨')
+
+        print(' '.join(user_letters))
+    else:
+        print('🫣 Incorrect! Try again! 🫣')
+        chance -= 1
+
+    print(SEPARATOR)
+
+
+def start_game(difficulty):
     """Starts the Hangman game."""
     clear_screen()
+    set_difficulty(difficulty)
     print(WELCOME_MESSAGE)
     print(HINT)
     print(SEPARATOR)
@@ -34,34 +82,9 @@ def start_game():
         check_letter(guessed_letter)
 
 
-def check_letter(guessed_letter):
-    """Checks if the guessed letter is correct and updates the game state."""
-    global word_count, chance
-    if guessed_letter in word_letters:
-        indexes = [index for index, item in enumerate(word_letters) if item == guessed_letter]
-
-        for index in indexes:
-            if user_letters[index] is '_':
-                user_letters[index] = guessed_letter
-                word_count -= 1
-            else:
-                print('🤨 You have already guessed that letter. 🤨')
-
-        print(' '.join(user_letters))
-    else:
-        print('🫣 Incorrect! Try again! 🫣')
-        chance -= 1
-
-    print(SEPARATOR)
-
-
-def clear_screen():
-    """Clears the screen."""
-    os.system('cls' if os.name == 'nt' else 'clear')
-
-
 if __name__ == '__main__':
-    start_game()
+    difficulty = select_difficulty()
+    start_game(difficulty)
     clear_screen()
     if chance == 0:
         print('😬 You LOSE! 😬')
