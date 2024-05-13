@@ -2,6 +2,8 @@ import os
 import random
 import requests
 from dotenv import load_dotenv
+from db import Database
+import bcrypt
 
 # Load environment variables from .env file
 load_dotenv()
@@ -17,6 +19,10 @@ game_difficulty = {
     'm': 15,
     'h': 10
 }
+
+some_words = []
+
+db = Database()
 
 
 def clear_screen():
@@ -56,6 +62,7 @@ def set_word_api():
             word_letters = list(selected_word)
             user_letters = ['_' for _ in selected_word]
             word_count = len(selected_word)
+            db.insert_word(selected_word)
             return selected_word, word_letters, user_letters, word_count
     except requests.exceptions.RequestException as e:
         pass
@@ -104,24 +111,74 @@ def start_game(difficulty, selected_word, word_letters, user_letters, word_count
     return chance
 
 
+def register_or_login():
+    while True:
+        username = input('Enter your username: ')
+        password = input('Enter your password: ')
+        user = db.get_user(username)
+
+        if user is None:
+            # User doesn't exist, so register
+            hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+            db.insert_user(username, hashed_password)
+            user = db.get_user(username)
+
+            print(SEPARATOR)
+            print(f'Welcome {user[1]}')
+            print("Total score:", user[3])
+            print(SEPARATOR)
+
+            return user[0]  # Assuming user[0] is ID
+        else:
+            # User exists, check password
+            if bcrypt.checkpw(password.encode('utf-8'), user[2]):
+
+                print(SEPARATOR)
+                print(f'Welcome back {user[1]}')
+                print("Total score:", user[3])
+                print(SEPARATOR)
+
+                return user[0]
+            else:
+                print("Invalid credentials! Try again.")
+
+
 if __name__ == '__main__':
-    some_words = [
-        'apple', 'banana', 'cherry', 'orange', 'pear', 'mango', 'strawberry', 'grape', 'blueberry',
-        'pineapple', 'kiwi', 'watermelon', 'peach', 'apricot', 'plum', 'lemon', 'lime', 'coconut', 'avocado',
-        'tangerine', 'nectarine', 'guava', 'papaya', 'ugly', 'melon', 'sugar', 'sour', 'sea', 'white', 'american',
-        'wild',
-        'cucumber', 'beach', 'black', 'blue', 'california', 'carolina', 'chinese', 'clammy', 'climb',
-        'common', 'tomato', 'desert', 'date', 'eastern', 'florida', 'fuzzy', 'garden', 'georgia', 'rice', 'indian',
-        'japanese', 'korean', 'nut', 'mallow', 'mountain', 'oak', 'holly', 'tree', 'pumpkin', 'purple', 'red',
-        'rock', 'salal', 'saw', 'shiny', 'leaf', 'silver', 'wisteria'
-    ]
-    difficulty = select_difficulty()
-    selected_word, word_letters, user_letters, word_count = set_word()
-    chance = start_game(difficulty, selected_word, word_letters, user_letters, word_count)
-    clear_screen()
-    if chance == 0:
-        print('😬 You LOSE! 😬')
-    else:
-        print('🤩 You WON! 🤩')
-    print('Word is:', selected_word)
-    print('Thanks for playing...!')
+    try:
+        db.create_users_table()
+        db.create_words_table()
+        db.create_games_table()
+
+        if os.path.exists('words.txt'):
+            with open('words.txt', 'r') as f:
+                for line in f:
+                    word = db.get_word(line.strip())
+                    if word is None:
+                        db.insert_word(line.strip())
+
+        some_words = db.get_all_words()
+
+        for word in some_words:
+            if not db.get_word(word):
+                db.insert_word(word)
+
+        user_id = register_or_login()
+        difficulty = select_difficulty()
+        selected_word, word_letters, user_letters, word_count = set_word()
+        chance = start_game(difficulty, selected_word, word_letters, user_letters, word_count)
+        clear_screen()
+        if chance == 0:
+            won = 0
+            print('😬 You LOSE! 😬')
+        else:
+            won = 1
+            print('🤩 You WON! 🤩')
+            db.update_user_score(user_id, word_count)
+
+        word = db.get_word(selected_word)
+        db.insert_game(user_id, word[0], won)
+
+        print('Word is:', selected_word)
+        print('Thanks for playing...!')
+    finally:
+        db.close_connection()
